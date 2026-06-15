@@ -1,0 +1,23 @@
+# Python virtual environments
+.venv/
+venv/
+
+# Python cache/build artifacts
+__pycache__/
+*.py[cod]
+*.so
+.pytest_cache/
+
+# Environment files (do not commit secrets)
+.env
+**/.env
+.env.*
+**/.env.*
+
+# ADK local artifacts/state
+.adk/
+**/.adk/
+
+# OS/editor artifacts
+.DS_Store
+.vscode/
