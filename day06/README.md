@@ -8,7 +8,7 @@ retrieves. Day 06 takes the same story and makes it production-shaped in two
 ways:
 
 1. **Real documents.** Instead of a handful of inline strings, the knowledge
-   base is built by loading actual **PDF files**, extracting text page by
+   base is built by loading actual document files (**PDF/Markdown/Text**), extracting text page by
    page with `pypdf`, and carrying `{"source": filename, "page": N}`
    **metadata** all the way through embedding, indexing, retrieval, and into
    the agent's answers — so every grounded claim can be traced back to an
@@ -26,8 +26,8 @@ ways:
 
 | File | Role |
 |---|---|
-| `docs/*.pdf` | Three short sample PDFs — a product guide, a warranty FAQ, a returns policy — that form the knowledge base |
-| `kb.py` | Loads PDFs page by page (with metadata), embeds them, and exposes `semantic_search()` over the configured backend |
+| `docs/*` | Sample e-commerce policy docs (warranty, returns, shipping SLA) that form the knowledge base |
+| `kb.py` | Loads document chunks with metadata, embeds them, and exposes `semantic_search()` over the configured backend |
 | `backends.py` | `MemoryBackend` (ChromaDB, default) and `OpenSearchBackend` (AWS OpenSearch k-NN) — the single swap point |
 | `agent.py` | `plain_agent` (no retrieval) and `root_agent` (RAG-grounded with citations, exported for `adk web`) |
 | `session.py` | In-memory session factory (same single-swap-point pattern as Day 03/05) |
@@ -85,20 +85,21 @@ adk web .
 
 | # | Scenario | What it demonstrates |
 |---|---|---|
-| 1 | PDF ingestion + semantic search | Which PDFs were loaded, how many pages were indexed, and raw `semantic_search()` results annotated with `[source.pdf p.N]` |
+| 1 | Document ingestion + semantic search | Which docs were loaded, how many chunks were indexed, and raw `semantic_search()` results annotated with `[source p.N]` |
 | 2 | Grounded vs ungrounded | The same fictional-policy question goes to `plain_agent` and `root_agent` — one guesses, the other answers from a retrieved page |
-| 3 | Citations | A question whose answer names the exact PDF and page it came from, e.g. `(tokyo-product-guide.pdf, p.2)` |
+| 3 | Citations | A question whose answer names the exact source and page it came from, e.g. `(returns-and-refunds.md, p.1)` |
 | 4 | Honest fallback | A question none of the three PDFs cover — the grounding rules make the agent say so instead of inventing an answer |
 
 ---
 
-## How PDF ingestion works
+## How document ingestion works
 
 `kb.load_pdf_chunks()` is the whole pipeline in a few lines:
 
-1. Glob every `*.pdf` in `docs/`.
-2. Open each with `pypdf.PdfReader` and extract text **page by page**.
-3. Skip blank pages; for every page with text, emit one chunk:
+1. Read supported files in `docs/` (`*.pdf`, `*.md`, `*.txt`).
+2. For PDFs, open each with `pypdf.PdfReader` and extract text **page by page**.
+3. For Markdown/Text, index the full file as a single chunk (`page=1`).
+4. Skip blank content; for every chunk with text, emit:
    `{"id": "<file-stem>-p<N>", "text": "...", "metadata": {"source": "<file>.pdf", "page": N}}`.
 
 "One page = one chunk" is the simplest possible splitting strategy — good

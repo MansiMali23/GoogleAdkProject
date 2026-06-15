@@ -32,65 +32,65 @@ from mcp.server.fastmcp import FastMCP
 mcp = FastMCP(
     "ecombot-order",
     log_level="WARNING",
-    host=os.getenv("BOOKING_SERVER_HOST", "127.0.0.1"),
-    port=int(os.getenv("BOOKING_SERVER_PORT", "8765")),
+    host=os.getenv("ORDER_SERVER_HOST", "127.0.0.1"),
+    port=int(os.getenv("ORDER_SERVER_PORT", "8765")),
 )
 
 # ── Mock order data ───────────────────────────────────────────────────────
 _BOOKINGS: dict[str, dict] = {
     "TB-2001": {
         "order_id": "TB-2001",
-        "passenger_name": "Ravi Kumar",
+        "customer_name": "Ravi Kumar",
         "email": "ravi.kumar@example.com",
-        "origin": "Bengaluru (BLR)",
-        "destination": "Delhi (DEL)",
-        "departure_date": "2026-06-12",
-        "shipment_number": "TB-401",
-        "cabin_class": "Economy",
+        "source_city": "Bengaluru",
+        "delivery_city": "Delhi",
+        "delivery_date": "2026-06-12",
+        "tracking_number": "TRK-401",
+        "service_type": "Standard",
         "status": "Confirmed",
     },
     "TB-2002": {
         "order_id": "TB-2002",
-        "passenger_name": "Meera Nair",
+        "customer_name": "Meera Nair",
         "email": "meera.nair@example.com",
-        "origin": "Mumbai (BOM)",
-        "destination": "Dubai (DXB)",
-        "departure_date": "2026-06-19",
-        "shipment_number": "TB-512",
-        "cabin_class": "Business",
+        "source_city": "Mumbai",
+        "delivery_city": "Dubai",
+        "delivery_date": "2026-06-19",
+        "tracking_number": "TRK-512",
+        "service_type": "Express",
         "status": "Confirmed",
     },
     "TB-2003": {
         "order_id": "TB-2003",
-        "passenger_name": "John Mathews",
+        "customer_name": "John Mathews",
         "email": "john@example.com",
-        "origin": "Bengaluru (BLR)",
-        "destination": "Singapore (SIN)",
-        "departure_date": "2026-06-04",
-        "shipment_number": "TB-330",
-        "cabin_class": "Economy",
+        "source_city": "Bengaluru",
+        "delivery_city": "Singapore",
+        "delivery_date": "2026-06-04",
+        "tracking_number": "TRK-330",
+        "service_type": "Standard",
         "status": "Completed",
     },
     "TB-2004": {
         "order_id": "TB-2004",
-        "passenger_name": "John Mathews",
+        "customer_name": "John Mathews",
         "email": "john@example.com",
-        "origin": "Delhi (DEL)",
-        "destination": "Singapore (SIN)",
-        "departure_date": "2026-06-18",
-        "shipment_number": "TB-345",
-        "cabin_class": "Economy",
+        "source_city": "Delhi",
+        "delivery_city": "Singapore",
+        "delivery_date": "2026-06-18",
+        "tracking_number": "TRK-345",
+        "service_type": "Standard",
         "status": "Confirmed",
     },
     "TB-2005": {
         "order_id": "TB-2005",
-        "passenger_name": "John Mathews",
+        "customer_name": "John Mathews",
         "email": "john@example.com",
-        "origin": "Mumbai (BOM)",
-        "destination": "Dubai (DXB)",
-        "departure_date": "2026-06-19",
-        "shipment_number": "TB-512",
-        "cabin_class": "Premium Economy",
+        "source_city": "Mumbai",
+        "delivery_city": "Dubai",
+        "delivery_date": "2026-06-19",
+        "tracking_number": "TRK-513",
+        "service_type": "Priority",
         "status": "Confirmed",
     },
 }
@@ -115,7 +115,7 @@ def get_order_status(order_id: str) -> dict:
         order_id: Order reference, e.g. "TB-2001".
 
     Returns:
-        A dict with order_id, route, departure_date and status if found,
+        A dict with order_id, shipping_path, delivery_date and status if found,
         or {"found": False, ...} with a guidance message if not.
     """
     order = _BOOKINGS.get(order_id.strip().upper())
@@ -125,8 +125,8 @@ def get_order_status(order_id: str) -> dict:
     return {
         "found": True,
         "order_id": order["order_id"],
-        "route": f"{order['origin']} -> {order['destination']}",
-        "departure_date": order["departure_date"],
+        "shipping_path": f"{order['source_city']} -> {order['delivery_city']}",
+        "delivery_date": order["delivery_date"],
         "status": order["status"],
     }
 
@@ -139,7 +139,7 @@ def get_order_details(order_id: str) -> dict:
         order_id: Order reference, e.g. "TB-2002".
 
     Returns:
-        The full order record (passenger, route, dates, cabin class,
+        The full order record (customer, route, dates, service tier,
         status) if found, or {"found": False, ...} if not.
     """
     order = _BOOKINGS.get(order_id.strip().upper())
@@ -160,17 +160,17 @@ def list_orders(email: str) -> dict:
         email: Ecommerceler's email address, e.g. "john@example.com".
 
     Returns:
-        A dict with the email and a list of orders (order_id, route,
-        departure_date, cabin_class, status). The list is empty if no
+        A dict with the email and a list of orders (order_id, shipping_path,
+        delivery_date, service_type, status). The list is empty if no
         orders match.
     """
     email_norm = email.strip().lower()
     matches = [
         {
             "order_id": b["order_id"],
-            "route": f"{b['origin']} -> {b['destination']}",
-            "departure_date": b["departure_date"],
-            "cabin_class": b["cabin_class"],
+            "shipping_path": f"{b['source_city']} -> {b['delivery_city']}",
+            "delivery_date": b["delivery_date"],
+            "service_type": b["service_type"],
             "status": b["status"],
         }
         for b in _BOOKINGS.values()
@@ -208,7 +208,7 @@ def cancel_order(order_id: str, confirm: bool = False) -> dict:
     if order is None:
         return _not_found(order_id)
 
-    route = f"{order['origin']} -> {order['destination']}"
+    shipping_path = f"{order['source_city']} -> {order['delivery_city']}"
 
     if not confirm:
         return {
@@ -217,7 +217,7 @@ def cancel_order(order_id: str, confirm: bool = False) -> dict:
             "status": "cancellation_pending",
             "message": (
                 f"This will cancel order {order['order_id']} "
-                f"({route} on {order['departure_date']}). "
+                f"({shipping_path} on {order['delivery_date']}). "
                 "Call cancel_order again with confirm=True to proceed."
             ),
         }
@@ -227,7 +227,7 @@ def cancel_order(order_id: str, confirm: bool = False) -> dict:
         "found": True,
         "order_id": order["order_id"],
         "status": "Cancelled",
-        "message": f"Order {order['order_id']} ({route}) has been cancelled.",
+        "message": f"Order {order['order_id']} ({shipping_path}) has been cancelled.",
     }
 
 

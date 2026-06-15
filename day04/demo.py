@@ -52,8 +52,8 @@ _GUIDE = """
   SCENARIO GUIDE — Day 04: PostgreSQL Tools + Redis Session Persistence
   ──────────────────────────────────────────────────────────────────────
   1  Order lookup      "Check order TB-1001 for me."
-  2  Follow-up (state)   "What's the departure date?"       ← no ID needed
-  3  Shipment search       "Find shipments from Mumbai to London."
+    2  Follow-up (state)   "What's the delivery date?"        ← no ID needed
+    3  Delivery search       "Find orders from Mumbai to London."
   4  Cancel order      "Cancel order TB-1002."
   5  Already-cancelled   "Cancel order TB-1003."          ← graceful error
   6  Session restart     [demo recreates runner, shows state survives]
@@ -176,15 +176,15 @@ async def run_scenarios(runner, user_id: str, session_id: str) -> None:
     _sep()
     print("  Scenario 2 — Follow-up using session state (no ID repeated)")
     _sep()
-    prompt = "What's the departure date for this order?"
+    prompt = "What's the delivery date for this order?"
     reply = await _ask(runner, user_id, session_id, prompt)
     _show("S2", prompt, reply)
 
     # ── Scenario 3: Shipment search ──────────────────────────────────────────
     _sep()
-    print("  Scenario 3 — Shipment search (queries PostgreSQL shipments table)")
+    print("  Scenario 3 — Delivery search (queries PostgreSQL shipments table)")
     _sep()
-    prompt = "I want to fly from Mumbai to London. What shipments are available?"
+    prompt = "I need an order delivered from Mumbai to London. What options are available?"
     reply = await _ask(runner, user_id, session_id, prompt)
     _show("S3", prompt, reply)
 

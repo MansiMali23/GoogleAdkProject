@@ -1,5 +1,5 @@
 """
-agent.py — Formal Airline Advisor
+agent.py — Formal E-commerce Advisor
 ===================================
 Example: day02/formal_support/
 

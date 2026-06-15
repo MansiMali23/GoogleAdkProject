@@ -20,7 +20,7 @@ deliberately mixes two MCP transports:
 root_agent combines both toolsets for scenarios 1A, 2A, 3B and 4A.
 
 timeout_demo_agent (Scenario 3A) uses a second product toolset whose server
-process is started with HOTEL_SEARCH_DELAY_SECONDS set higher than the
+process is started with PRODUCT_SEARCH_DELAY_SECONDS set higher than the
 toolset's own MCP timeout, so the find_products call times out and ADK's
 graceful MCP error handling returns {"error": ...} instead of hanging.
 
@@ -63,16 +63,21 @@ _MODEL = "openrouter/google/gemini-2.5-flash"
 
 _SERVERS_DIR = Path(__file__).parent / "mcp_servers"
 _BOOKING_SERVER = str(_SERVERS_DIR / "order_server.py")
-_HOTEL_SERVER = str(_SERVERS_DIR / "product_server.py")
+_PRODUCT_SERVER = str(_SERVERS_DIR / "product_server.py")
 
 # Scenario 3A tuning — see .env.example
-_SLOW_HOTEL_DELAY_SECONDS = os.getenv("HOTEL_SEARCH_DELAY_SECONDS", "8")
-_SLOW_HOTEL_TIMEOUT_SECONDS = float(os.getenv("HOTEL_TOOL_TIMEOUT_SECONDS", "3"))
+_SLOW_PRODUCT_DELAY_SECONDS = os.getenv(
+  "PRODUCT_SEARCH_DELAY_SECONDS",
+  "8",
+)
+_SLOW_PRODUCT_TIMEOUT_SECONDS = float(
+  os.getenv("PRODUCT_TOOL_TIMEOUT_SECONDS", "3")
+)
 
 # ── Order server: Streamable HTTP, started once as a background process ──
-_BOOKING_HOST = os.getenv("BOOKING_SERVER_HOST", "127.0.0.1")
-_BOOKING_PORT = int(os.getenv("BOOKING_SERVER_PORT", "8765"))
-_BOOKING_URL = f"http://{_BOOKING_HOST}:{_BOOKING_PORT}/mcp"
+_ORDER_HOST = os.getenv("ORDER_SERVER_HOST", "127.0.0.1")
+_ORDER_PORT = int(os.getenv("ORDER_SERVER_PORT", "8765"))
+_ORDER_URL = f"http://{_ORDER_HOST}:{_ORDER_PORT}/mcp"
 
 
 def _wait_for_port(host: str, port: int, timeout: float = 10.0) -> None:
@@ -87,14 +92,18 @@ def _wait_for_port(host: str, port: int, timeout: float = 10.0) -> None:
 
 
 def _start_order_server() -> subprocess.Popen:
-    proc = subprocess.Popen(
-        [sys.executable, _BOOKING_SERVER],
-        env={**os.environ, "BOOKING_SERVER_HOST": _BOOKING_HOST, "BOOKING_SERVER_PORT": str(_BOOKING_PORT)},
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    _wait_for_port(_BOOKING_HOST, _BOOKING_PORT)
-    return proc
+  proc = subprocess.Popen(
+    [sys.executable, _BOOKING_SERVER],
+    env={
+      **os.environ,
+      "ORDER_SERVER_HOST": _ORDER_HOST,
+      "ORDER_SERVER_PORT": str(_ORDER_PORT),
+    },
+    stdout=subprocess.DEVNULL,
+    stderr=subprocess.DEVNULL,
+  )
+  _wait_for_port(_ORDER_HOST, _ORDER_PORT)
+  return proc
 
 
 _order_server_process = _start_order_server()
@@ -113,19 +122,19 @@ atexit.register(shutdown_order_server)
 _PERSONA = """
 You are EcomAssist, eComBot's ecommerce assistant. You help ecommercelers check
 shipment orders, look up order details, and find products near their
-destination.
+delivery city.
 
 You have access to these tools, provided by MCP tool servers:
 
 Order tools:
   - get_order_status(order_id): quick status check for one order
   - get_order_details(order_id): full details for one order
-    (route, dates, cabin class, status)
+    (route, dates, service tier, status)
   - list_orders(email): all orders for a customer's email address
   - cancel_order(order_id, confirm): cancel ONE order
 
 Product tools:
-  - find_products(city, max_price_per_night_inr, near): search products by
+  - find_products(city, max_price_inr, near): search products by
     city, with optional price ceiling and area/landmark preference
 
 General rules:
@@ -147,7 +156,7 @@ General rules:
 Multi-step flows:
   - If a request involves both a order and a product (for example, "confirm
     my shipment and suggest a product"), first call a order tool to confirm
-    the shipment details, then use the destination city from that result for
+    the shipment details, then use the delivery city from that result for
     find_products. Don't ask the user to repeat information your tools
     already gave you.
 
@@ -169,7 +178,7 @@ Cancellations (safety-critical):
 def _order_toolset() -> McpToolset:
     return McpToolset(
         connection_params=StreamableHTTPConnectionParams(
-            url=_BOOKING_URL,
+      url=_ORDER_URL,
             timeout=10,
         ),
     )
@@ -180,8 +189,10 @@ def _product_toolset(*, delay_seconds: str, timeout: float) -> McpToolset:
         connection_params=StdioConnectionParams(
             server_params=StdioServerParameters(
                 command=sys.executable,
-                args=[_HOTEL_SERVER],
-                env={"HOTEL_SEARCH_DELAY_SECONDS": delay_seconds},
+              args=[_PRODUCT_SERVER],
+              env={
+                "PRODUCT_SEARCH_DELAY_SECONDS": delay_seconds,
+              },
             ),
             timeout=timeout,
         ),
@@ -205,11 +216,11 @@ root_agent = LlmAgent(
 # Reuses the shared order_toolset (one HTTP client session per process is
 # enough — opening a second concurrent session against the same order
 # server here led to MCP session-setup errors). Only the product toolset
-# differs: its own stdio subprocess, started with HOTEL_SEARCH_DELAY_SECONDS
+# differs: its own stdio subprocess, started with PRODUCT_SEARCH_DELAY_SECONDS
 # higher than its own MCP timeout so find_products times out.
 slow_product_toolset = _product_toolset(
-    delay_seconds=_SLOW_HOTEL_DELAY_SECONDS,
-    timeout=_SLOW_HOTEL_TIMEOUT_SECONDS,
+  delay_seconds=_SLOW_PRODUCT_DELAY_SECONDS,
+  timeout=_SLOW_PRODUCT_TIMEOUT_SECONDS,
 )
 
 timeout_demo_agent = LlmAgent(

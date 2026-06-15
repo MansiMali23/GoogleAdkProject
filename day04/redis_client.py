@@ -2,7 +2,7 @@
 redis_client.py — Redis connection + session snapshot helpers
 -------------------------------------------------------------
 Redis is used as a fast working-memory cache:
-  - Session state (current_order, passenger, route) is snapshotted here
+    - Session state (current_order, customer_name, delivery_context) is snapshotted here
     with a TTL so it can survive short process restarts without a full DB read.
   - The canonical session state lives in PostgreSQL (via ADK DatabaseSessionService).
   - All Redis errors are caught and logged; the app continues without caching.

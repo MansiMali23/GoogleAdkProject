@@ -1,13 +1,16 @@
 """
-kb.py — PDF-backed knowledge base with a configurable vector store
+kb.py — Document-backed knowledge base with a configurable vector store
 ----------------------------------------------------------------------
 Concept: Module 6 — Loading real documents, metadata, and swappable
 vector databases (in-memory ChromaDB for dev, AWS OpenSearch for prod)
 
 The pipeline, end to end:
 
-    1. Load every PDF in docs/, extract text page by page (pypdf), and
-       attach metadata — {"source": filename, "page": N} — so retrieved
+     1. Load every supported document in docs/.
+         - PDFs are extracted page by page (pypdf)
+         - Markdown/text files are indexed as a single chunk
+         Every chunk carries metadata — {"source": filename, "page": N} —
+         so retrieved
        chunks can always be traced back to where they came from.
     2. Embed each page once (OpenRouter's OpenAI embedding endpoint via
        LiteLlm — same provider as the chat model, see agent.py) and
@@ -61,32 +64,48 @@ def embed(texts: list[str]) -> list[list[float]]:
     return [item["embedding"] for item in response.data]
 
 
-# ── PDF loading ─────────────────────────────────────────────────────────────
+# ── Document loading ────────────────────────────────────────────────────────
 
 def load_pdf_chunks(docs_dir: Path = DOCS_DIR) -> list[dict[str, Any]]:
     """
-    Read every *.pdf in docs_dir and return one chunk per non-empty page.
+    Read supported docs in docs_dir and return chunks with source metadata.
 
-    Keeping "one page = one chunk" is the simplest possible splitting
-    strategy — good enough for short reference documents like these, and
-    it keeps the metadata easy to reason about: every chunk can point back
-    to an exact (source file, page number). A production pipeline would
-    likely also split long pages into smaller overlapping windows.
+    Supported formats:
+    - *.pdf: one chunk per non-empty page
+    - *.md / *.txt: one chunk for the whole file (page=1)
 
     Each chunk is {"id", "text", "metadata": {"source", "page"}}.
     """
     chunks = []
-    for pdf_path in sorted(docs_dir.glob("*.pdf")):
-        reader = PdfReader(str(pdf_path))
-        for page_num, page in enumerate(reader.pages, start=1):
-            text = (page.extract_text() or "").strip()
+    for doc_path in sorted(docs_dir.iterdir()):
+        if not doc_path.is_file():
+            continue
+
+        suffix = doc_path.suffix.lower()
+
+        if suffix == ".pdf":
+            reader = PdfReader(str(doc_path))
+            for page_num, page in enumerate(reader.pages, start=1):
+                text = (page.extract_text() or "").strip()
+                if not text:
+                    continue
+                chunks.append({
+                    "id": f"{doc_path.stem}-p{page_num}",
+                    "text": text,
+                    "metadata": {"source": doc_path.name, "page": page_num},
+                })
+            continue
+
+        if suffix in {".md", ".txt"}:
+            text = doc_path.read_text(encoding="utf-8").strip()
             if not text:
                 continue
             chunks.append({
-                "id": f"{pdf_path.stem}-p{page_num}",
+                "id": f"{doc_path.stem}-p1",
                 "text": text,
-                "metadata": {"source": pdf_path.name, "page": page_num},
+                "metadata": {"source": doc_path.name, "page": 1},
             })
+
     return chunks
 
 
@@ -100,7 +119,7 @@ _backend = None
 def get_backend():
     """
     Return the (lazily indexed) configured vector backend, loaded with
-    every PDF chunk under docs/.
+    every supported document chunk under docs/.
 
     VECTOR_BACKEND chooses the implementation; everything else about
     indexing — load, embed, upsert — is identical either way.

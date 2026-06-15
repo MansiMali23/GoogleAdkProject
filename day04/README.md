@@ -78,8 +78,8 @@ The demo runs six scripted scenarios automatically, then offers a free REPL.
 | # | Scenario | What it demonstrates |
 |---|---|---|
 | 1 | `"Check order TB-1001"` | `get_order_status` queries PostgreSQL |
-| 2 | `"What's the departure date?"` | Follow-up uses session state — no order ID repeated |
-| 3 | `"Shipments from Mumbai to London"` | `search_shipments` queries the shipments table |
+| 2 | `"What's the delivery date?"` | Follow-up uses session state — no order ID repeated |
+| 3 | `"Orders from Mumbai to London"` | `search_shipments` queries the shipments table |
 | 4 | `"Cancel order TB-1002"` | `cancel_order` updates the row to Cancelled |
 | 5 | `"Cancel TB-1003"` | Graceful error — order is already Cancelled |
 | 6 | *(automatic)* | Runner is recreated with the same session_id; state recovered from PostgreSQL |
@@ -190,6 +190,6 @@ day04/
 | State cache | Redis | TTL-controlled (default 1 hour) |
 | Conversation history | PostgreSQL `session_history` | Permanent |
 
-Session state is short-lived working memory (current order, passenger name,
-last shipment search). Conversation history is an append-only audit trail stored
+Session state is short-lived working memory (current order, customer name,
+last delivery search). Conversation history is an append-only audit trail stored
 separately in PostgreSQL — the two are never conflated.

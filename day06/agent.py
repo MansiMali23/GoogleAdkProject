@@ -1,5 +1,5 @@
 """
-agent.py — Day 06: PDF-grounded RAG with metadata citations
+agent.py — Day 06: document-grounded RAG with metadata citations
 ===============================================================
 Concept: Retrieval-Augmented Generation over real documents
 
@@ -7,13 +7,13 @@ Two agents share one persona — the only difference is retrieval:
 
     plain_agent  — answers from the model's own training data only
     root_agent   — runs kb.semantic_search() for every message, grounds
-                   its answer in the top-k matching PDF pages, and is
+                   its answer in the top-k matching document chunks, and is
                    told to cite each one by source filename + page number
 
 Putting the same question to both (see demo.py Scenario 2) is the
 clearest way to *see* what RAG buys you: grounded, checkable, *citable*
 answers instead of fluent guesses. The citation is only possible because
-kb.py carries {"source", "page"} metadata all the way from the PDF
+kb.py carries {"source", "page"} metadata all the way from source docs
 through embedding, indexing, and retrieval — see kb.load_pdf_chunks().
 
 ADK Web:
@@ -55,7 +55,7 @@ Grounding rules:
   on general or remembered knowledge for it, even if you believe you know
   the answer. Treat the retrieved text as the single source of truth.
 - Every retrieved chunk is tagged with its source document and page number.
-  When you use a chunk, cite it inline like "(tokyo-product-guide.pdf,
+    When you use a chunk, cite it inline like "(product-warranty-policy.md,
   p.1)" so the user can verify the claim against the original PDF.
 - If that section says nothing relevant was found, say so plainly — for
   example "I don't have grounded information on that" — instead of

@@ -1,9 +1,9 @@
 """
-tests/test_kb.py — Unit tests for Day 06's PDF-backed semantic search
+tests/test_kb.py — Unit tests for Day 06's document-backed semantic search
 -------------------------------------------------------------------------
 No network calls: kb.embed is patched with a stub that hands back
-hand-picked vectors. Both the PDF-loading step and the vector backend run
-for real — pypdf against the actual sample PDFs in docs/, and ChromaDB as
+hand-picked vectors. Both the document-loading step and the vector backend run
+for real — document readers against the sample docs in docs/, and ChromaDB as
 an in-memory EphemeralClient (the default MemoryBackend, same engine Day 05
 uses) — only the embedding API call is stubbed. So loading, metadata,
 indexing, and ranking/top_k are all checked end to end, offline and
@@ -55,15 +55,18 @@ def _reset_backend():
 
 
 class TestLoadPdfChunks:
-    def test_loads_one_chunk_per_pdf_page(self):
-        # Every sample PDF in docs/ is two pages of real, extractable text.
-        assert len(_CHUNKS) == 2 * len(list(kb.DOCS_DIR.glob("*.pdf")))
+    def test_loads_chunks_from_supported_docs(self):
+        supported = []
+        supported.extend(kb.DOCS_DIR.glob("*.pdf"))
+        supported.extend(kb.DOCS_DIR.glob("*.md"))
+        supported.extend(kb.DOCS_DIR.glob("*.txt"))
+        assert len(_CHUNKS) >= len(list(supported))
 
     def test_each_chunk_carries_source_and_page_metadata(self):
         for chunk in _CHUNKS:
             assert set(chunk) == {"id", "text", "metadata"}
             assert set(chunk["metadata"]) == {"source", "page"}
-            assert chunk["metadata"]["source"].endswith(".pdf")
+            assert chunk["metadata"]["source"].endswith((".pdf", ".md", ".txt"))
             assert chunk["metadata"]["page"] >= 1
             assert chunk["text"].strip()
 
@@ -71,7 +74,7 @@ class TestLoadPdfChunks:
         ids = [c["id"] for c in _CHUNKS]
         assert len(ids) == len(set(ids))
         for chunk in _CHUNKS:
-            stem = chunk["metadata"]["source"].removesuffix(".pdf")
+            stem = Path(chunk["metadata"]["source"]).stem
             assert chunk["id"] == f"{stem}-p{chunk['metadata']['page']}"
 
 

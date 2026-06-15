@@ -6,7 +6,7 @@ Google ADK · MCP Tool Servers (FastMCP) · OpenRouter
 Runs five scripted scenarios:
   1A  Order status   — get_order_status, asks for a missing reference
   2A  Order + product  — get_order_details then find_products, reusing
-                         the destination from the first tool call
+                                                 the delivery city from the first tool call
   3A  Product timeout    — find_products times out on a slow MCP server,
                          EcomAssist falls back gracefully
   3B  Unknown order  — get_order_status for an ID that doesn't exist
@@ -50,8 +50,8 @@ from agent import (
     shutdown_order_server,
     slow_product_toolset,
     timeout_demo_agent,
-    _SLOW_HOTEL_DELAY_SECONDS,
-    _SLOW_HOTEL_TIMEOUT_SECONDS,
+    _SLOW_PRODUCT_DELAY_SECONDS,
+    _SLOW_PRODUCT_TIMEOUT_SECONDS,
 )
 from session import make_runner
 
@@ -66,7 +66,7 @@ _GUIDE = """
   1A  Order status   get_order_status — single MCP tool, asks for a
                         order reference / email if it's missing
   2A  Order + product  get_order_details then find_products — the second
-                        tool call reuses the destination from the first
+                        tool call reuses the delivery city from the first
   3A  Product timeout    find_products times out on a slow MCP server ->
                         graceful fallback message, no hang
   3B  Unknown order  get_order_status for an ID that doesn't exist ->
@@ -188,13 +188,13 @@ async def scenario_1a_order_status(runner, user_id, session_id) -> None:
 
     await _turn(
         runner, user_id, session_id,
-        "I booked a shipment to Singapore last week. Can you confirm my current order status?",
+        "I placed an order to Singapore last week. Can you confirm my current order status?",
     )
     await _turn(runner, user_id, session_id, "My email is john@example.com.")
 
     print(
         "  Notice: EcomAssist asked for a order reference (or email) before\n"
-        "  calling the order tools, then summarised status and route in\n"
+        "  calling the order tools, then summarised status and shipping path in\n"
         "  plain language instead of dumping raw tool output.\n"
     )
 
@@ -207,7 +207,7 @@ async def scenario_2a_shipment_and_product(runner, user_id, session_id) -> None:
 
     await _turn(
         runner, user_id, session_id,
-        "I'm flying from Mumbai to Dubai next Friday. Can you confirm my "
+        "I'm shipping an order from Mumbai to Dubai next Friday. Can you confirm my "
         "order and suggest a mid-range product close to the city center?",
     )
     await _turn(runner, user_id, session_id, "My order reference is TB-2002.")
@@ -215,7 +215,7 @@ async def scenario_2a_shipment_and_product(runner, user_id, session_id) -> None:
     print(
         "  Notice: EcomAssist called get_order_details(TB-2002) to confirm the\n"
         "  Mumbai -> Dubai shipment, then reused 'Dubai' from that result as\n"
-        "  the city for find_products — the destination wasn't asked for twice.\n"
+        "  the city for find_products — the delivery city wasn't asked for twice.\n"
     )
 
 
@@ -223,10 +223,10 @@ async def scenario_3a_product_timeout(runner, user_id, session_id) -> None:
     _sep()
     print("  Scenario 3A — find_products timeout -> graceful fallback")
     _sep()
-    print(f"\n  Product server delay : HOTEL_SEARCH_DELAY_SECONDS={_SLOW_HOTEL_DELAY_SECONDS}s")
-    print(f"  Toolset timeout    : {_SLOW_HOTEL_TIMEOUT_SECONDS}s (shorter than the delay)\n")
+    print(f"\n  Product server delay : PRODUCT_SEARCH_DELAY_SECONDS={_SLOW_PRODUCT_DELAY_SECONDS}s")
+    print(f"  Toolset timeout    : {_SLOW_PRODUCT_TIMEOUT_SECONDS}s (shorter than the delay)\n")
 
-    prompt = "Find me three product options in Bangkok for this weekend, near Sukhumvit, under ₹7,000 per night."
+    prompt = "Find me three product options in Delhi, near Central Market, under ₹7,000."
     print(f"  You: {prompt}\n")
 
     start = time.monotonic()
